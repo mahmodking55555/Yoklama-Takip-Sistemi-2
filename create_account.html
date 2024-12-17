@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hesap Oluştur - Yoklama Kayıt Sistemi</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: url('New folder/kutuphane.jpg') no-repeat center center fixed;
+            background-size: cover;
+            color: #f0f0f0; /* نص أبيض فاتح */
+            font-family: 'Poppins', sans-serif;
+        }
+        .container {
+            max-width: 600px;
+            margin-top: 150px;
+            padding: 20px;
+            background: rgba(0, 0, 0, 0.8); /* خلفية داكنة */
+            border-radius: 15px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+        }
+
+        h2 {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+    </style>
+
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.21.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.21.0/firebase-database.js"></script>
+    <script>
+        // إعداد Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyCqNyfeDCwfCNCrrHcSP5HlQAbGu0UWBwQ",
+  authDomain: "yoklama-sistemi-24072.firebaseapp.com",
+  databaseURL: "https://yoklama-sistemi-24072-default-rtdb.firebaseio.com",
+  projectId: "yoklama-sistemi-24072",
+  storageBucket: "yoklama-sistemi-24072.firebasestorage.app",
+  messagingSenderId: "570202065250",
+  appId: "1:570202065250:web:e8a940b430a8e2de26443b",
+  measurementId: "G-KW02236DLH"
+        };
+
+        const app = firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+    </script>
+</head>
+<body>
+    <div class="container">
+        <h2>Hesap Oluştur</h2>
+        <form id="signupForm">
+            <div class="mb-3">
+                <label for="fullName" class="form-label">İsim</label>
+                <input type="text" id="fullName" class="form-control" required>
+            </div>
+            <div class="mb-3">
+                <label for="username" class="form-label">Kullanıcı Adı</label>
+                <input type="text" id="username" class="form-control" required>
+            </div>
+            <div class="mb-3">
+                <label for="password" class="form-label">Şifre</label>
+                <input type="password" id="password" class="form-control" required>
+            </div>
+            <div class="mb-3">
+                <label for="accountType" class="form-label">Hesap Türü</label>
+                <select id="accountType" class="form-select" required>
+                    <option value="teacher">Öğretmen</option>
+                    <option value="student">Öğrenci</option>
+                </select>
+            </div>
+            <button type="submit" class="btn btn-primary w-100">Hesap Oluştur</button>
+        </form>
+    </div>
+
+    <script>
+        document.getElementById("signupForm").addEventListener("submit", function(event) {
+            event.preventDefault();
+
+            const fullName = document.getElementById("fullName").value.trim();
+            const username = document.getElementById("username").value.trim();
+            const password = document.getElementById("password").value.trim();
+            const accountType = document.getElementById("accountType").value;
+
+            // التحقق من البيانات المدخلة
+            if (!fullName || !username || !password) {
+                alert("لطفًا، تأكد من تعبئة جميع الحقول.");
+                return; // إيقاف تنفيذ الكود إذا كانت البيانات غير مكتملة
+            }
+
+            // جلب الحسابات من قاعدة بيانات Firebase
+            const accountsRef = database.ref("accounts");
+
+            // التحقق إذا كان هناك حساب بنفس اسم المستخدم
+            accountsRef.orderByChild("username").equalTo(username).once("value", snapshot => {
+                if (snapshot.exists()) {
+                    alert("Kullanıcı adı zaten alınmış.");
+                    return;
+                }
+
+                // إضافة الحساب الجديد إلى Firebase
+                const newAccountRef = accountsRef.push();
+                newAccountRef.set({
+                    fullName: fullName,
+                    username: username,
+                    password: password,
+                    accountType: accountType
+                });
+
+                alert("Hesap oluşturuldu!");
+
+                // التوجيه مباشرة بعد إنشاء الحساب بناءً على نوع الحساب
+                if (accountType === "teacher") {
+                    window.location.href = "teacher_dashboard.html"; // توجيه إلى صفحة المعلم
+                } else {
+                    window.location.href = "student_dashboard.html"; // توجيه إلى صفحة الطالب
+                }
+            });
+        });
+    </script>
+</body>
+</html>

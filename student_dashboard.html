@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Öğrenci Paneli - Yoklama Sistemi</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jsqr/dist/jsQR.js"></script>
+    <style>
+        body {
+            background: url('New folder/kutuphane.jpg') no-repeat center center fixed;
+            background-size: cover;
+            color: #f0f0f0; /* نص أبيض فاتح */
+            font-family: 'Poppins', sans-serif;
+        }
+
+        .profile-box {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.7); /* خلفية سوداء شفافة */
+            border-radius: 12px;
+            padding: 15px;
+            width: 200px;
+            text-align: center;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+            color: #fff; /* لون النص */
+        }
+
+        .profile-box img {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            border: 3px solid #fff;
+            margin-bottom: 10px;
+        }
+
+        .profile-box h5 {
+            margin: 10px 0 5px;
+            font-size: 18px;
+        }
+
+        .profile-box .university-name {
+            font-size: 14px;
+            color: #fff;
+        }
+
+        .container {
+            max-width: 600px;
+            margin-top: 150px;
+            padding: 20px;
+            background-color: rgba(0, 0, 0, 0.7); /* خلفية سوداء شفافة */
+            border-radius: 15px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+        }
+
+        h2 {
+            text-align: center;
+            margin-bottom: 20px;
+            color: #fff; /* جعل العنوان باللون الأبيض */
+        }
+
+        .btn-info {
+            background-color: #1abc9c;
+            border: none;
+            color: #fff; /* لون النص داخل الأزرار */
+            font-weight: bold;
+        }
+
+        .btn-info:hover {
+            background-color: #16a085;
+        }
+
+        #qr-reader {
+            width: 100%;
+            height: 300px;
+            margin-bottom: 20px;
+            border-radius: 10px; /* إضافة تدوير الحواف */
+            border: 2px solid #1abc9c; /* تحديد لون الإطار */
+        }
+
+        #video {
+            width: 100%;
+            height: 300px;
+            border: 2px solid #fff;
+            border-radius: 10px; /* إضافة تدوير الحواف */
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3); /* إضافة تأثير الظلال */
+        }
+    </style>
+</head>
+<body>
+    <div class="profile-box">
+        <img src="New folder/bingol.jpg" alt="Profile">
+        <h5 id="studentName"></h5>
+        <small>Öğrenci</small>
+        
+        <hr style="border-color: rgba(255, 255, 255, 0.3);">
+        
+        <a href="index.html" class="btn btn-secondary btn-sm w-100 mb-2">Geri Dön</a>
+        <button onclick="logout()" class="btn btn-danger btn-sm w-100">Çıkış Yap</button>
+    </div>
+
+    <div class="container">
+        <h2>Yoklama Kaydı</h2>
+
+        <!-- QR Code Reader -->
+        <div id="qr-reader">
+            <video id="video"></video>
+            <button id="start-scan" class="btn btn-info w-100">QR Kodu Tara</button>
+            <input type="text" id="lectureCodeInput" class="form-control mt-3" placeholder="QR Kodu Girin" readonly>
+        </div>
+
+        <!-- Attendance Form (manual) -->
+        <form id="attendanceForm">
+            <div class="mb-3">
+                <label for="lectureCodeInput" class="form-label">Ders Kodu</label>
+                <input type="text" id="manualLectureCodeInput" class="form-control" required>
+            </div>
+            <button type="button" id="submitAttendance" class="btn btn-info w-100">Kaydet</button>
+        </form>
+    </div>
+
+    <script>
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyCqNyfeDCwfCNCrrHcSP5HlQAbGu0UWBwQ",
+  authDomain: "yoklama-sistemi-24072.firebaseapp.com",
+  databaseURL: "https://yoklama-sistemi-24072-default-rtdb.firebaseio.com",
+  projectId: "yoklama-sistemi-24072",
+  storageBucket: "yoklama-sistemi-24072.firebasestorage.app",
+  messagingSenderId: "570202065250",
+  appId: "1:570202065250:web:e8a940b430a8e2de26443b",
+  measurementId: "G-KW02236DLH"
+        };
+
+        const app = firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore(app);
+        const auth = firebase.auth(app);
+
+        const currentUser = JSON.parse(localStorage.getItem("currentUser"));
+        document.getElementById("studentName").innerText = currentUser ? currentUser.fullName : "Misafir";
+
+        // Handle QR Code Scanning
+        document.getElementById("start-scan").addEventListener("click", function () {
+            const video = document.getElementById('video');
+            const canvas = document.createElement('canvas');
+            const context = canvas.getContext('2d');
+            
+            navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
+                .then(function (stream) {
+                    video.srcObject = stream;
+                    video.setAttribute('playsinline', true); // for mobile devices
+                    video.play();
+
+                    requestAnimationFrame(scanQRCode);
+                })
+                .catch(function (err) {
+                    alert("Error accessing camera: " + err.message);
+                    console.error("Camera access error: ", err);
+                });
+
+            function scanQRCode() {
+                if (video.readyState === video.HAVE_ENOUGH_DATA) {
+                    canvas.height = video.videoHeight;
+                    canvas.width = video.videoWidth;
+                    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+                    const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+                    const code = jsQR(imageData.data, canvas.width, canvas.height, {
+                        inversionAttempts: "dontInvert",
+                    });
+
+                    if (code) {
+                        document.getElementById("lectureCodeInput").value = code.data;
+                        saveAttendance(code.data);  // Save attendance based on QR code
+                        stopScanner();
+                    } else {
+                        requestAnimationFrame(scanQRCode);
+                    }
+                } else {
+                    requestAnimationFrame(scanQRCode);
+                }
+            }
+
+            function stopScanner() {
+                const stream = video.srcObject;
+                const tracks = stream.getTracks();
+                tracks.forEach(track => track.stop());
+            }
+        });
+
+        // Handle manual attendance submission
+        document.getElementById("submitAttendance").addEventListener("click", function () {
+            const enteredLectureCode = document.getElementById("manualLectureCodeInput").value.trim();
+            saveAttendance(enteredLectureCode);
+        });
+
+        function saveAttendance(lectureCode) {
+            const lectureRef = db.collection('lectures').doc(lectureCode);
+            lectureRef.get().then(doc => {
+                if (doc.exists) {
+                    const lectureData = doc.data();
+                    if (!lectureData.students.includes(currentUser.fullName)) {
+                        lectureData.students.push(currentUser.fullName);
+                        lectureRef.update({
+                            students: firebase.firestore.FieldValue.arrayUnion(currentUser.fullName)
+                        }).then(() => {
+                            alert("Yoklama kaydedildi!");
+                        }).catch(error => {
+                            console.error('Error marking attendance:', error);
+                        });
+                    } else {
+                        alert("Zaten kayıtlısınız.");
+                    }
+                } else {
+                    alert("Geçersiz ders kodu.");
+                }
+            }).catch(error => {
+                console.error('Error retrieving lecture:', error);
+            });
+        }
+
+        function logout() {
+            localStorage.removeItem("currentUser");
+            window.location.href = "index.html";
+        }
+    </script>
+</body>
+</html>
